@@ -1,7 +1,0 @@
-# Default behaviour
-* text=auto
-
-# Explicit file delcarations to make sure nothing breaks
-*.sh text eol=lf
-*.ps1 text eol=crlf
-*.cna text eol=lf
