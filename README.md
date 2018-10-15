@@ -1,0 +1,1 @@
+# Cobaltstrike-Aggressor-Scripts-Collection
