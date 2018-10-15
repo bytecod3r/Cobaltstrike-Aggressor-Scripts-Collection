@@ -1,0 +1,270 @@
+# The beginning of integration with Ebowla
+# Put ebwola.py in your path, for example:
+# ln -s /opt/Ebowla/ebowla.py /usr/bin/ebowla.py
+# You can generate a payload by clicking on Attacks -> Generate Ebowla Payload, just follow the instructions
+#
+# Some more work could be done to make this better, but for now, I'm just going to assume you have ebowla installed in /opt/Ebowla
+# - @Und3rf10w 20170228
+
+sub ebowlaHelperConfigPopup {
+	import javax.swing.JFrame;
+	import javax.swing.JPanel;
+	import java.awt.GridLayout;
+	import java.awt.BorderLayout;
+	import javax.swing.JScrollPane;
+	import javax.swing.JTextPane;
+	import javax.swing.JLabel;
+	import javax.swing.JTextField;
+	import javax.swing.JButton;
+	import javax.swing.JComboBox;
+	import javax.swing.JEditorPane;
+	import javax.swing.ScrollPaneConstants;
+	import javax.swing.JDialog;
+	import javax.swing.DefaultComboBoxModel;
+	import javax.swing.SwingConstants;
+	$dialog = dialog("Ebowla Configuration Window", 450, 550);
+	
+	# Base content pane
+	$contentPane = [new JPanel];
+	[$contentPane setLayout: [new GridLayout: 9, 1, 0, 0]];
+	
+	# Panel for holding the instructions
+	$instructionsPanel = [new JPanel];
+	[$contentPane add: $instructionsPanel];
+	[$instructionsPanel setLayout: [new GridLayout: 0, 1, 0, 0]];
+	
+	$scrollPane = [new JScrollPane];
+	[$scrollPane setVerticalScrollBarPolicy: [ScrollPaneConstants VERTICAL_SCROLLBAR_ALWAYS]];
+	[$scrollPane setHorizontalScrollBarPolicy: [ScrollPaneConstants HORIZONTAL_SCROLLBAR_NEVER]];
+	[$instructionsPanel add: $scrollPane];
+	
+	$textPaneInstructions = [new JTextPane];
+	[$textPaneInstructions setContentType: "text/html"];
+	[$textPaneInstructions setText: "<b><u>ENSURE YOU EDIT THE ENCRYPTION CONFIGURATION AT THE BOTTOM OF THIS WINDOW.</u></b><br>Use this menu to set the various configuration options for the Ebowla payload you want to generate. This assumes you already have a desired payload generated via Cobalt Strike. The pre-generated payload must match your desired output type. Maybe eventually we can have it where it generates a payload on the fly and does everything automagically (submit a pull request).\n\nThe general workflow is to just work down this menu:\n<ol>\n  <li>Generate and a payload using the built-in Cobalt Strike payload generator</li>\n  <li>Open this menu (you are here!)</li>\n  <li>Specify the path to the payload</li>\n  <li>Specify the desired output type (Go, Python, Powershell)</li>\n  <li>Specify the desired output payload type</li>\n  <li>Specify the key iterations (if nessessary)</li>\n  <li>Specify the minus bytes</li>\n  <li>Specify the encryption type</li>\n  <li>Modify the settings for your desired encryption type</li>\n </ol>\n\nDEFINITIONS:\n<ul>\n  <li><b>Output type</b> -  specifies which template will be used for output</li>\n  <li><b>Payload type</b> - specifies the file being fed and the file being generated</li>\n  <li><b>Key iterations</b> - for otp_type = key and for symmetric_settings_win. It is the number of times that the key hash is iterated via sha512 before being used as the encryption key.  NOT available to otp_type = full</li>\n  <li><b>Minus Bytes</b> - Number of bytes subtracted from the reconstructed payload that will be the sha512 checksum used when checking the file before executing the payload</li>\n  <li><b>Encryption Type</b> - specifies which Ebowla encryption type you want to use (ENV or OTP)</li>\n</ul>"];
+	[$textPaneInstructions setCaretPosition: 0];
+	[$scrollPane setViewportView: $textPaneInstructions];
+	[$textPaneInstructions setEditable: false];
+	
+	# Panel for selecting the path to the input payload
+	$payloadInputPanel = [new JPanel];
+	[$contentPane add: $payloadInputPanel];
+	
+	$lblPayloadInputPath = [new JLabel: "Path to input payload:"];
+	[$payloadInputPanel add: $lblPayloadInputPath];
+	
+	$textFieldPayloadInput = [new JTextField];
+	[$payloadInputPanel add: $textFieldPayloadInput];
+	[$textFieldPayloadInput setColumns: 15];
+	
+	$btnInputBrowse = [new JButton: "Browse..."];
+	[$payloadInputPanel add: $btnInputBrowse];
+	
+	# Logic for the browse button:
+	[$btnInputBrowse addActionListener: lambda({
+		prompt_file_open("Select your input payload", &closure, false,{
+				$inputPayloadPath = $1;
+				[$textFieldPayloadInput setText: $inputPayloadPath];
+			});
+	})];
+	
+	# Panel for selecting the output type
+	$outputPanel = [new JPanel];
+	[$contentPane add: $outputPanel];
+	$lblOutputType = [new JLabel: "Output Type:"];
+	[$outputPanel add: $lblOutputType];
+	$comboBoxOutput = [new JComboBox];
+		[$comboBoxOutput addItem: "Go"];
+		[$comboBoxOutput addItem: "Powershell"];
+		[$comboBoxOutput addItem: "Python"];
+		[$comboBoxOutput setSelectedIndex: 0];
+	[$outputPanel add: $comboBoxOutput];
+
+	
+	# Panel for selecting Payload Type
+	$payloadTypePanel = [new JPanel];
+	[$contentPane add: $payloadTypePanel];
+
+	$lblPayloadType = [new JLabel: "Payload Type:"];
+	[$payloadTypePanel add: $lblPayloadType];
+	
+	$comboBoxPayload = [new JComboBox];
+	
+	# Logic for the dynamically populated payload combobox:
+	# Create the models:
+	$payloadTypeModelPowershell = [new DefaultComboBoxModel: @("EXE", "CODE", "DLL_x86", "DLL_x64", "FILE_DROP")]; #was casted as final
+	$payloadTypeModelPython = [new DefaultComboBoxModel: @("EXE", "SHELLCODE", "CODE", "FILE_DROP")]; #was casted as final
+	$payloadTypeModelGo = [new DefaultComboBoxModel: @("EXE", "DLL_x86", "DLL_x64", "SHELLCODE")]; #was casted as final
+
+	# Set 'Go' as the default model (because the default output type is 'Go')
+	[$comboBoxPayload setModel: $payloadTypeModelGo];
+
+	# Logic to dynamically populate comboBoxPayload:
+	[$comboBoxOutput addActionListener: lambda({
+	if ([$comboBoxOutput getSelectedItem] eq "Powershell"){
+		[$comboBoxPayload setModel: $payloadTypeModelPowershell];
+	} else if ([$comboBoxOutput getSelectedItem] eq "Python"){
+		[$comboBoxPayload setModel: $payloadTypeModelPython];
+	} else {
+		[$comboBoxPayload setModel: $payloadTypeModelGo];
+	}
+	})];
+
+	[$payloadTypePanel add: $comboBoxPayload];
+	
+	# Panel for selecting the key iterations
+	$keyIterPanel = [new JPanel];
+	[$contentPane add: $keyIterPanel];
+	
+	$lblKeyIterations = [new JLabel: "Key iterations:"];
+	[$keyIterPanel add: $lblKeyIterations];
+	
+	$textFieldKeyIter = [new JTextField];
+	[$textFieldKeyIter setText: "10000"];
+	[$keyIterPanel add: $textFieldKeyIter];
+	[$textFieldKeyIter setColumns: 10];
+	
+	# Panel for selecting minus bytes
+	$minusBytesPanel = [new JPanel];
+	[$contentPane add: $minusBytesPanel];
+	
+	$lblMinusBytes = [new JLabel: "Minus bytes:"];
+	[$minusBytesPanel add: $lblMinusBytes];
+	
+	$textFieldMinusBytes = [new JTextField];
+	[$textFieldMinusBytes setText: "1"];
+	[$textFieldMinusBytes setColumns: 3];
+	[$minusBytesPanel add: $textFieldMinusBytes];
+	
+	# Panel for selecting encryption type
+	$encTypePanel = [new JPanel];
+	[$contentPane add: $encTypePanel];
+	
+	$lblEncType = [new JLabel: "Encryption Type:"];
+	[$encTypePanel add: $lblEncType];
+	
+	$comboBoxEncType = [new JComboBox];
+		[$comboBoxEncType addItem: "ENV"];
+		[$comboBoxEncType addItem: "OTP"];
+		[$comboBoxEncType setSelectedIndex: 0];
+	[$encTypePanel add: $comboBoxEncType];
+	
+	# Panel for the general configuration editor
+	$configEditorPanel = [new JPanel];
+	[$contentPane add: $configEditorPanel];
+	[$configEditorPanel setLayout: [new GridLayout: 0, 1, 0, 0]];
+	
+	$scrollPaneConfigEditor = [new JScrollPane];
+	[$scrollPaneConfigEditor setHorizontalScrollBarPolicy: [ScrollPaneConstants HORIZONTAL_SCROLLBAR_NEVER]];
+	[$scrollPaneConfigEditor setVerticalScrollBarPolicy: [ScrollPaneConstants VERTICAL_SCROLLBAR_ALWAYS]];
+	[$configEditorPanel add: $scrollPaneConfigEditor];
+	$dtrpConfigEditor = [new JEditorPane];
+	$lblConfigurationEditor = [new JLabel: "Encryption Configuration Editor"];
+	[$lblConfigurationEditor setHorizontalAlignment: [SwingConstants CENTER]];
+	[$dtrpConfigEditor setContentType: "text/encriched"];
+	[$dtrpConfigEditor setText: "[otp_settings]\n    # otp is simple, provide one time pad, type,  and starting search location\n    # type is full otp to reconstruct the malware in memory, or an offset in the file for a symmetric key\n\n    otp_type = key # OPTIONS: full, key\n\n\n    # File for use with otp\n\n    pad = 'explorer.exe'\n\n    # Max pad size: Decide the largest pad size to use. \n    # 256 ** 3 - 1 (16777215 or 0xffffff) maximum is supported\n    # Too small might be a bad idea... \n\n    pad_max = 0xffffff\n\n    # starting location in the path to start looking if walking the path\n\n    scan_dir = 'c:\\windows\\sysnative'#'%APPDATA%'\n\n\n    # For use with FULL OTP:\n    #  Number of max bytes for matching the payload against the OTP \n    #  -- larger byte width equals possible smaller lookup table but longer build times\n\n    byte_width = 9\n\n\n\n[symmetric_settings_win]\n    # AES-CFB-256 key from a combination of the any of the following settings.\n    # Any of the following can be used, the more specific to your target the better.  \n\n\n    # set the value to '' if you do not want to use that value\n\n\n    # This is not a permanent list.  Any env variable can be added below.\n    # If you want the env variable to be used, give it a value.\n    # These are case insensitive.\n    \n    [[ENV_VAR]]\n    \n        username = 'admin'\n        computername = ''\n        homepath = ''\n        homedrive = ''\n        Number_of_processors = ''\n        processor_identifier = ''\n        processor_revision = ''\n        userdomain = 'DESKTOP-E1D6G0A'\n        systemdrive = ''\n        userprofile = ''\n        path = ''\n        temp = ''\n\n\n     [[PATH]]\n    \n    # Check if a path exists on the workstation\n    # Only one path can be used.  This is immutable. To use, give it a value and a start location.\n    \n        # This is the path that will be used as part of the key\n\n        path = ''\n    \n        # You can provide Env Variables that are associated with a path for the start_loc\n        #  , such as %TEMP%, %APPDATA%, %PROGRAMFILES%\n    # You Must use the %ENV VAR% when using env vars for paths!\n    # Examples: C:\\Windows, C:\\Program Files, %APPDATA%\n    \n    start_loc = '%HOMEPATH%'\n\n\n    [[IP_RANGES]]\n    \n    # Network mask for external enumeration 22.23.0.0\n    # IP mask should not be used alone more simple to brute force.\n    # Support for only 24 16 8 masks or exact ip\n    # 12.12.0.0 or 12.12.12.12 or 12.12.0.0 or 12.0.0.0\n    \n    external_ip_mask = ''  \n\n\n    [[SYSTEM_TIME]]\n    \n    # Time Range with BEGING and END in EPOC\n        # Should be used with another variable\n    # This is a mask: 20161001 or 20161000 or 20160000\n    # YEAR, MONTH, DAY\n    \n    Time_Range = '' \n"];
+	[$dtrpConfigEditor setCaretPosition: 0];
+	[$scrollPaneConfigEditor setViewportView: $dtrpConfigEditor];
+	[$scrollPaneConfigEditor setColumnHeaderView: $lblConfigurationEditor];
+
+	
+	# Panel for holding the action buttons
+	$actionButtonPanel = [new JPanel];
+	[$contentPane add: $actionButtonPanel];
+	
+	$btnGenerate = [new JButton: "Generate"];
+	[$actionButtonPanel add: $btnGenerate];
+	[$btnGenerate addActionListener: lambda({
+		$payloadInputPath = [$textFieldPayloadInput getText];
+		$outputPayloadType = [$comboBoxOutput getSelectedItem];
+		$keyIter = [$textFieldKeyIter getText];
+		$minusBytes = [$textFieldMinusBytes getText];
+		$payloadType = [$comboBoxPayload getSelectedItem];
+		$encType = [$comboBoxEncType getSelectedItem];
+		$ebowlaConfig = [$dtrpConfigEditor getText];
+		saveEbowlaConfig($payloadInputPath, $outputPayloadType, $keyIter, $minusBytes, $payloadType, $encType, $ebowlaConfig);
+		# Close the window
+		[$dialog setVisible: 0];
+	})];
+	
+	$btnCancel = [new JButton: "Cancel"];
+	[$actionButtonPanel add: $btnCancel];
+	[$btnCancel addActionListener: lambda({
+		[$dialog setVisible: 0];
+	})];
+
+	# add everything to $dialog and make it visible
+	[$dialog add: $contentPane];
+	[$dialog setVisible: 1];
+}
+
+
+
+sub dialog {
+	local('$dialog');
+		$dialog = [new JDialog: $__frame__, $1];
+		[$dialog setSize: $2, $3];
+		[$dialog setLayout: [new BorderLayout]];
+		[$dialog setLocationRelativeTo: $__frame__];
+	return $dialog;
+}
+
+sub saveEbowlaConfig {
+	# Saves the ebowla configuration, calls ebowla, generates the payload, remove the config, then exits. Returns the payload:
+	#   saveEbowlaConfig(<path to input payload>, <output payload type>, <key iterations>, <minus bytes>, <payload type>, <Encryption Type>, <Rest of configuration>);
+	# 
+	# This is made as a sub so that these can be dynamically generated later
+
+	# Set the arguments
+	$inputPath = $1;
+	$outputPayloadType = $2;
+	$keyIter = $3;
+	$minusBytes = $4;
+	$payloadType = $5;
+	$encType = $6;
+	$ebowlaConfig = $7;
+
+	# Generate the temporary ebowla config
+	$handle = openf(">ebowlatmpconfig.config");
+	println($handle, "[Overall]");
+	println($handle, "\tEncryption_Type = " . $encType);
+	println($handle, "\toutput_type = " . $outputPayloadType);
+	println($handle, "\tminus_bytes = " . $minusBytes);
+	println($handle, "\tpayload_type = " . $payloadType);
+	println($handle, "\tkey_iterations = " . $keyIter);
+	println($handle, "\tclean_output = True\n");
+	println($handle, $ebowlaConfig);
+	closef($handle);
+
+	# Call ebowla and generate the payload:
+	#   This assumes that ebowla is in your $PATH as ebowla.py. I don't have a good workaround for this. 
+	$genEbowlaPayload = exec("ebowla.py " . $inputPath . " ebowlatmpconfig.config");
+	@pushPayloadGen = readAll($genEbowlaPayload);
+
+	# Remove the generated config
+	# Wait up to 10 seconds for the payload to be generated.
+	$returnValue = wait($genEbowlaPayload, 10 * 1000);
+	if ($returnValue == 0) {
+		$answer = search(@pushPayloadGen, &vaildPathCriteria);
+		if ($answer ne $null){
+			@generatedPathArray = split(': ', $answer, 2); 
+			show_message("Payload has been generated at: " . cwd() . "/output/" . @generatedPathArray[1]);
+		}
+		closef($genEbowlaPayload);
+	} else {
+		printAll(@pushPayloadGen);
+		show_error("Something went wrong when trying to generate payload. Please see Script Console for more info");
+		closef($genEbowlaPayload);
+	}
+
+	deleteFile("ebowlatmpconfig.config");
+}
+
+popup attacks{
+	item ("Generate Ebowla Payload", { 
+		ebowlaHelperConfigPopup();
+		});
+}
+
+sub vaildPathCriteria{
+	return iff("[*] Writing" isin $1, "$1", $null); 
+}

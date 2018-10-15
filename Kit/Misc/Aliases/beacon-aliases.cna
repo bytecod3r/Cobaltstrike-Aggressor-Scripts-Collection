@@ -1,0 +1,124 @@
+# A few usefull aliases
+
+alias env {
+        blog($1, "$2 is: '" . %bvars[$1][$2] . "'");
+}
+
+alias cdsystem32 {
+      $path = %bvars[$1]["windir"];
+      bcd($1, "$path" . "\\" . "system32");
+}
+
+
+alias cdusertemp {
+        $path = %bvars[$1]["TEMP"];
+        bcd($1, "$path");
+}
+alias cduserhome {
+        $path = %bvars[$1]["USERPROFILE"];
+        bcd($1, "$path");
+}
+
+alias cduserappdata {
+        $path = %bvars[$1]["APPDATA"];
+        bcd($1, "$path");
+}
+
+alias cduserdownloads {
+            $path = %bvars[$1]["USERPROFILE"];
+            $dlpath = "$path $+ / $+ Downloads/";
+           bcd($1, "$dlpath");
+}
+
+
+alias userstartup {
+	bshell($1,"wmic startup list full");
+}
+
+alias awarness {
+    btask($1, "Situtation Awareness!");
+	bshell($1,"whoami & hostname & ipconfig /all & net user /domain & net group /domain & net group \"domain admins\" /domain & net group \"Exchange Trusted Subsystem\" /domain & net accounts /domain & net user & net localgroup administrators & netstat -an & tasklist & sc query & systeminfo ");
+}
+
+
+###################
+#quick stuff
+###################
+#
+#
+
+alias idletime {
+        bpowershell_import($1,script_resource("Misc/Aliases/scripts/Idletime.ps1"));
+        bpowershell($1,"IdleTime");
+}
+
+
+
+alias addremotedesktopuser {
+        $user = $2;
+        bshell($1, "net localgroup \"remote desktop users\" $user /add");
+        bshell($1, "net localgroup \"remote desktop users\"");
+}
+
+alias delremotedesktopuser {
+        $user = $2;
+        bshell($1, "net localgroup \"remote desktop users\" $user /delete");
+        bshell($1, "net localgroup \"remote desktop users\"");
+}
+
+
+alias quickwebportscan {
+    binput($1, "internal web portscan arp 80,81,443, 8080,8081,8181, 1024");
+    bportscan($1, $2, "80,81,90,443,8081,8080,8181,8443", "arp", 1024);
+}
+
+alias quicksshportscan {
+    binput($1, "ssh portscan 22");
+    bportscan($1, $2, "22", "arp", 1024);
+}
+
+
+# quickly run finduser
+alias finduser {
+        bpowershell_import($1, script_resource("Misc/Aliases/scripts/PowerView/powerview.ps1"));
+        bpowershell($1, "Invoke-UserHunter -UserName " . $2);
+}
+
+
+alias powerup {
+        bpowershell_import($1, script_resource("Misc/Aliases/scripts/PowerUp.ps1"));
+        bpowershell($1, "Invoke-AllChecks");
+}
+
+alias enablePSremoting {
+        binput($1, "Enabling PowerShell Remoting ");
+        bpowershell($1, 'Enable-PSRemoting -Force');
+}
+
+
+alias checkAv {
+        blog($1,"Checking Installed Av and Malware Status.");
+        bpowershell_import($1, script_resource("Misc/Aliases/scripts/checkav.ps1"));
+        bpowershell($1, "Get-LHSAntiVirusProduct");
+}
+
+alias monitorclipboard {
+        bpowershell_import($1, script_resource("Misc/Aliases/scripts/clipboard-monitor.ps1"));
+        bpowershell($1, "Start-ClipboardMonitor");
+}
+
+alias mimikittenz {
+            bpowershell_import($1, script_resource("Misc/Aliases/scripts/mimikittenz/Invoke-mimikittenz.ps1"));
+                    bpowershell($1, "Invoke-mimikittenz");
+}
+
+
+alias getEstConnections {
+
+        bshell($1,"netstat -na | findstr \"EST\"");
+}
+
+alias pb {
+        openProcessBrowser($1);
+}
+

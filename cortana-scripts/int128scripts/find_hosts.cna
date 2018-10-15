@@ -1,0 +1,14 @@
+# load into hosts_nmap
+# To Do:  Allow user to choose heartbeat & number of decoy hosts
+popup hosts_nmap {
+	item "Continuous_Scan" {
+		$net_block = prompt_text("Enter the network: i.e. 192.168.1.0/24");
+		$scan_string = "db_nmap -sV -O -A $net_block";
+		$console = open_console_tab("Continuous Scan");
+                cmd_echo($console, "Starting Continuous scan, close tab to cancel");
+		on heartbeat_1m {
+			cmd($console, "$scan_string");
+		}
+	}
+}	
+

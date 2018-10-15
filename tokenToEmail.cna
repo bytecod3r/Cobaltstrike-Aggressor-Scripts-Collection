@@ -1,0 +1,56 @@
+#
+# This script overrides WEB_HIT and PROFILER_HIT from default.cna to
+# resolve the id var (token) to an email
+# 
+# https://www.cobaltstrike.com/aggressor-script/cobaltstrike.html
+#
+
+# method, uri, addr, ua, response, size, handler, when
+set WEB_HIT {
+	local('$out $now $method $uri $addr $ua $response $size $handler $when $params');
+	($method, $uri, $addr, $ua, $response, $size, $handler, $params, $when) = @_;
+
+	$now  = dstamp($when);
+	$out  = "$now visit from\cE:\o $addr";
+
+	# add in our email address
+	if ($params['id'] ne "") {
+		$out .= " (" . tokenToEmail($params['id']) . ")";
+	}
+
+	$out .= "\n";
+	$out .= "\tRequest\cE:\o $method $uri $+ \n";
+
+	if ($handler ne "") {
+		$out .= "\t $+ $handler $+ \n";
+	}
+	else {
+		$out .= "\tResponse\cE:\c4 $response $+ \n";
+	}
+
+	$out .= "\t $+ $ua $+ \n";
+
+	if (size($params) > 0) {
+		local('$key $value');
+
+		$out .= "\t= Form Data=\n";
+
+		foreach $key => $value ($params) {
+			$out .= "\t $+ $[10]key = $value $+ \n";
+		}
+	}
+
+	return "$out $+ \n";
+}
+
+set PROFILER_HIT {
+	local('$out $app $ver');
+	
+	$out = "\c9[+]\o $1 $+ / $+ $2 [" . tokenToEmail($5) . "] Applications";
+
+	foreach $app => $ver ($4) {
+		$out .= "\n\t $+ $[25]app $ver";
+	}
+
+	return "$out $+ \n\n";
+}

