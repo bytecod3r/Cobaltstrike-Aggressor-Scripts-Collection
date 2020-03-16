@@ -8,15 +8,25 @@ The collection of tested cobaltstrike aggressor scripts.
 
 Tyler Rosonke
 @harmj0y
-@mattifestation
-@Und3rf10w
-@bluescreenofjeff
-@r3dQu1nn
-@001SPARTaN
-@vysecurity
-MrT-F
-@joevest
-@AndrewChiles
-@dubhack
-@int128
 
+@mattifestation
+
+@Und3rf10w
+
+@bluscreenofjeff
+
+@r3dQu1nn
+
+@001SPARTaN
+
+@vysecurity
+
+MrT-F
+
+@joevest
+
+@AndrewChiles
+
+@dubhack
+
+@int128
