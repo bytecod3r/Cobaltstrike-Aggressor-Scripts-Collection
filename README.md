@@ -4,7 +4,7 @@ I will be maintaining this repository.
 
 The collection of tested cobaltstrike aggressor scripts.
 
-##Big shoutout to the authors:
+## Big shoutout to the authors:
 
 + Tyler Rosonke
 + harmj0y
