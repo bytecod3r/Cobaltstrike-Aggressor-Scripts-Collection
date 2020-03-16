@@ -4,5 +4,19 @@ I will be maintaining this repository.
 
 The collection of tested cobaltstrike aggressor scripts.
 
-------------------------------
-@Bytecod3r
+**Big shoutout to the authors:**
+
+Tyler Rosonke
+@harmj0y
+@mattifestation
+@Und3rf10w
+@bluescreenofjeff
+@r3dQu1nn
+@001SPARTaN
+@vysecurity
+MrT-F
+@joevest
+@AndrewChiles
+@dubhack
+@int128
+
